@@ -65,10 +65,11 @@ This downloads and parses BMW's official telematic data catalogue into `bmw_data
 
 ## Architecture
 
-The project consists of two main components:
+The project consists of three main components:
 
 - **`bmw_cardata.py`** - Standalone library handling authentication and MQTT
 - **`main.py`** - CLI application with display logic and message formatting
+- **`webui.py`** - Web dashboard with real-time visualization and WebSocket updates
 
 ### Library Usage
 
@@ -127,6 +128,27 @@ To see raw MQTT messages with full JSON data and technical keys:
 ```bash
 uv run main.py --log-raw-messages
 ```
+
+### Web Dashboard
+
+Run the web dashboard for a visual real-time interface:
+
+```bash
+uv run webui.py
+# or if not using uv:
+python webui.py
+```
+
+This launches a web server at `http://localhost:5000` with:
+
+- **Real-time data visualization** with automatic updates via WebSockets
+- **Visual flash effects** when data values change
+- **Connection status monitoring** in the header
+- **Data statistics** showing point count, last update, and update rate
+- **Organized display** with data cards sorted alphabetically by technical ID
+- **BMW styling** with responsive grid layout
+
+The web UI integrates with BMW's data catalogue to show human-readable names and units for all telematic data points.
 
 ### Get MQTT Credentials Only
 
