@@ -60,7 +60,9 @@ Make a POST request to the device authorization endpoint:
 1. Display the `user_code` to the user
 2. Tell them to visit the `verification_uri_complete` URL
 3. Optionally open their browser automatically to this URL
-4. User logs into BMW portal and authorizes the device
+4. User logs into BMW portal and authorizes the application
+
+**Note**: The `verification_uri_complete` already contains the user code, so users don't need to enter it manually if they use this URL. Alternatively, they can use the "Authenticate Device" button and enter the code manually.
 
 ### Step 4: Poll for Tokens
 
@@ -88,6 +90,7 @@ While waiting for user authentication, poll the token endpoint:
   - **403 with `authorization_pending`**: Keep waiting
   - **403 with `access_denied`**: User denied access
   - **400 with `slow_down`**: Increase polling interval by 5 seconds
+  - **400 with `expired_token`**: Device code expired, restart flow
 
 **Successful Response** contains:
 
@@ -145,16 +148,34 @@ Use these credentials:
 - **Port**: `9000`
 - **Username**: Your `gcid` from token response
 - **Password**: The `id_token`
-- **Topic**: `<gcid>/<vin>` for specific vehicle, or `<gcid>/*` for all vehicles
+- **Topic**: `<gcid>/<vin>` for specific vehicle, or `<gcid>/+` for all vehicles
+- **Protocol**: MQTT v5.0 recommended
+- **Keep-Alive**: Set to 30 seconds or less (BMW disconnects after 60 seconds)
 - **SSL/TLS**: Required
+
+### MQTT Keep-Alive Requirements
+
+BMW's MQTT broker has strict connection timeout requirements:
+
+- **Server timeout**: 60 seconds - BMW will disconnect clients that don't send PINGREQ packets
+- **Recommended keep-alive**: 30 seconds or less to ensure reliable connection
+- **PINGREQ/PINGRESP**: Automatic heartbeat mechanism handled by MQTT client libraries
+- **Connection monitoring**: Watch for unexpected disconnections as they often indicate keep-alive issues
+
+**Example configuration:**
+```
+client.connect(host, port, keepalive=30)  # 30-second keep-alive
+```
 
 ## Important Notes
 
-1. **Only one MQTT connection per user** allowed at a time
-2. **Refresh tokens proactively** - don't wait until they expire
+1. **Only one MQTT connection per GCID** allowed at a time
+2. **Refresh tokens proactively** - don't wait until they expire (recommend 5-minute buffer)
 3. **Store tokens securely** - they provide full access to vehicle data
 4. **Handle token expiration gracefully** - implement automatic refresh
-5. **Rate limits**: API has 50 requests/day limit; use streaming for frequent access
+5. **MQTT connection expires** when ID token expires (~1 hour)
+6. **MQTT Keep-Alive critical** - BMW disconnects idle connections after 60 seconds
+7. **Rate limits**: API has 50 requests/day limit; use streaming for frequent access
 
 ## Error Handling
 
@@ -163,8 +184,10 @@ Common errors and solutions:
 - **Token expired**: Refresh using refresh token
 - **Invalid scope**: Re-authenticate with correct scopes
 - **No permission for VIN**: Ensure vehicle is mapped as PRIMARY user
-- **Connection failed**: Check network, SSL/TLS settings
+- **MQTT connection failed**: Check network, SSL/TLS settings, or ID token expiration
 - **Authentication pending**: Continue polling with proper interval
+- **Slow down**: Increase polling interval by 5 seconds
+- **Device code expired**: Restart the entire authentication flow
 
 ## Security Considerations
 
