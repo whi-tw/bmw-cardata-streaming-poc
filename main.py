@@ -40,7 +40,7 @@ except ImportError:
 class BMWCarDataClient:
     """BMW CarData client with OAuth2 Device Code Flow and MQTT streaming."""
 
-    def __init__(self):
+    def __init__(self, log_raw_messages=False):
         # Load configuration from environment
         self.client_id = os.getenv("BMW_CLIENT_ID")
         self.mqtt_host = os.getenv(
@@ -49,6 +49,7 @@ class BMWCarDataClient:
         self.mqtt_port = int(os.getenv("BMW_MQTT_PORT", "9000"))
         self.vin = os.getenv("BMW_VIN")
         self.token_file = os.getenv("BMW_TOKEN_FILE", "bmw_tokens.json")
+        self.log_raw_messages = log_raw_messages
 
         # Validate required environment variables
         required_vars = [
@@ -360,17 +361,51 @@ class BMWCarDataClient:
         """MQTT message callback."""
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"\n[{timestamp}] Message Received:")
-            print(f"Topic: {msg.topic}")
-            print(f"QoS: {msg.qos}")
-            print(f"Retain: {msg.retain}")
-
             data = json.loads(msg.payload.decode())
-            print(f"Data: {json.dumps(data, indent=2)}")
+            
+            if self.log_raw_messages:
+                print(f"\n[{timestamp}] Message Received:")
+                print(f"Topic: {msg.topic}")
+                print(f"QoS: {msg.qos}")
+                print(f"Retain: {msg.retain}")
+                print(f"Data: {json.dumps(data, indent=2)}")
+            else:
+                # Try to parse BMW CarData message structure
+                if self._parse_bmw_message(data, timestamp):
+                    return
+                    
+                # Fallback to raw JSON if parsing fails
+                print(f"\n[{timestamp}] Raw message: {json.dumps(data)}")
+            
         except json.JSONDecodeError:
             print(f"Received non-JSON message: {msg.payload.decode()}")
         except Exception as e:
             print(f"Error processing message: {e}")
+
+    def _parse_bmw_message(self, data, timestamp):
+        """Parse BMW CarData message into readable format."""
+        try:
+            if not isinstance(data, dict) or 'data' not in data:
+                return False
+                
+            vin = data.get('vin', 'Unknown')
+            msg_timestamp = data.get('timestamp', 'Unknown')
+            vehicle_data = data.get('data', {})
+            
+            print(f"\n[{timestamp}] Vehicle Event - {vin}")
+            print(f"Event time: {msg_timestamp}")
+            
+            # Parse each data point
+            for key, value in vehicle_data.items():
+                if isinstance(value, dict) and 'value' in value and 'timestamp' in value:
+                    print(f"  {key}: {value['value']} (at {value['timestamp']})")
+                else:
+                    print(f"  {key}: {value}")
+                    
+            return True
+            
+        except Exception:
+            return False
 
     def _on_log(self, client, userdata, level, buf):
         """MQTT logging callback for debugging."""
@@ -547,11 +582,16 @@ def main():
         action="store_true",
         help="Only print MQTT connection credentials and refresh tokens, don't connect to MQTT",
     )
+    parser.add_argument(
+        "--log-raw-messages",
+        action="store_true",
+        help="Log raw MQTT messages instead of parsed vehicle events",
+    )
 
     args = parser.parse_args()
 
     try:
-        client = BMWCarDataClient()
+        client = BMWCarDataClient(log_raw_messages=args.log_raw_messages)
         if args.credentials_only:
             client.run_credentials_only()
         else:
