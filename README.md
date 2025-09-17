@@ -33,6 +33,15 @@ A proof-of-concept Python client for BMW CarData that authenticates using OAuth2
    export BMW_VIN="your-vehicle-vin"
    ```
 
+## Authentication
+
+Before you can use this client, you need:
+- A BMW CarData client ID from your BMW customer portal
+- Your vehicle mapped as the PRIMARY user in your BMW account
+- Active BMW CarData subscription
+
+For a complete technical guide to BMW's OAuth2 Device Code Flow authentication process, including step-by-step implementation details for other programming languages, see [AUTHENTICATION.md](AUTHENTICATION.md).
+
 ## Usage
 
 ### Stream Vehicle Data
