@@ -341,11 +341,11 @@ class BMWCarDataClient:
             print("Connected to MQTT broker successfully")
 
             topic = f"{self.mqtt_username}/{self.vin}"
-            result = client.subscribe(topic, qos=1)
+            client.subscribe(topic, qos=1)
             print(f"Subscribed to topic: {topic} with QoS 1")
 
             wildcard_topic = f"{self.mqtt_username}/+"
-            wildcard_result = client.subscribe(wildcard_topic, qos=1)
+            client.subscribe(wildcard_topic, qos=1)
             print(f"Subscribed to wildcard topic: {wildcard_topic} with QoS 1")
 
             expires_at = datetime.fromisoformat(self.tokens["id_token"]["expires_at"])
@@ -362,7 +362,7 @@ class BMWCarDataClient:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             data = json.loads(msg.payload.decode())
-            
+
             if self.log_raw_messages:
                 print(f"\n[{timestamp}] Message Received:")
                 print(f"Topic: {msg.topic}")
@@ -373,10 +373,10 @@ class BMWCarDataClient:
                 # Try to parse BMW CarData message structure
                 if self._parse_bmw_message(data, timestamp):
                     return
-                    
+
                 # Fallback to raw JSON if parsing fails
                 print(f"\n[{timestamp}] Raw message: {json.dumps(data)}")
-            
+
         except json.JSONDecodeError:
             print(f"Received non-JSON message: {msg.payload.decode()}")
         except Exception as e:
@@ -385,25 +385,29 @@ class BMWCarDataClient:
     def _parse_bmw_message(self, data, timestamp):
         """Parse BMW CarData message into readable format."""
         try:
-            if not isinstance(data, dict) or 'data' not in data:
+            if not isinstance(data, dict) or "data" not in data:
                 return False
-                
-            vin = data.get('vin', 'Unknown')
-            msg_timestamp = data.get('timestamp', 'Unknown')
-            vehicle_data = data.get('data', {})
-            
+
+            vin = data.get("vin", "Unknown")
+            msg_timestamp = data.get("timestamp", "Unknown")
+            vehicle_data = data.get("data", {})
+
             print(f"\n[{timestamp}] Vehicle Event - {vin}")
             print(f"Event time: {msg_timestamp}")
-            
+
             # Parse each data point
             for key, value in vehicle_data.items():
-                if isinstance(value, dict) and 'value' in value and 'timestamp' in value:
+                if (
+                    isinstance(value, dict)
+                    and "value" in value
+                    and "timestamp" in value
+                ):
                     print(f"  {key}: {value['value']} (at {value['timestamp']})")
                 else:
                     print(f"  {key}: {value}")
-                    
+
             return True
-            
+
         except Exception:
             return False
 
@@ -472,7 +476,9 @@ class BMWCarDataClient:
         try:
             connect_properties = mqtt.Properties(mqtt.PacketTypes.CONNECT)
             connect_properties.SessionExpiryInterval = 0  # Clean start
-            self.mqtt_client.connect(self.mqtt_host, self.mqtt_port, 30, properties=connect_properties)
+            self.mqtt_client.connect(
+                self.mqtt_host, self.mqtt_port, 30, properties=connect_properties
+            )
             self.mqtt_client.loop_start()
             return True
         except Exception as e:

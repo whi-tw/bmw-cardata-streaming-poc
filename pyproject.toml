@@ -5,6 +5,7 @@ description = "Proof-of-concept BMW CarData MQTT client with OAuth2 Device Code 
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "beautifulsoup4>=4.13.5",
     "paho-mqtt>=2.1.0",
     "python-dotenv>=1.1.1",
     "requests>=2.32.5",
