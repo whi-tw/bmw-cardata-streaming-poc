@@ -112,14 +112,28 @@ class BMWCarDataClient:
 
         return code_verifier, code_challenge
 
-    def _save_tokens(self):
-        """Save tokens to disk for persistence."""
+    def _save_tokens_selective(self):
+        """Save only refresh token and metadata to disk for persistence."""
+        # Only persist refresh token, GCID, and scope - not access/ID tokens
+        persistent_tokens = {}
+
+        if "refresh_token" in self.tokens:
+            persistent_tokens["refresh_token"] = self.tokens["refresh_token"]
+        if "gcid" in self.tokens:
+            persistent_tokens["gcid"] = self.tokens["gcid"]
+        if "scope" in self.tokens:
+            persistent_tokens["scope"] = self.tokens["scope"]
+
         try:
             with open(self.token_file, "w") as f:
-                json.dump(self.tokens, f, indent=2)
-            print(f"Tokens saved to {self.token_file}")
+                json.dump(persistent_tokens, f, indent=2)
+            print(f"Refresh token saved to {self.token_file}")
         except Exception as e:
             print(f"Warning: Could not save tokens to {self.token_file}: {e}")
+
+    def _save_tokens(self):
+        """Legacy method - redirects to selective save."""
+        self._save_tokens_selective()
 
     def _load_tokens(self) -> bool:
         """Load tokens from disk if available."""
@@ -144,19 +158,16 @@ class BMWCarDataClient:
 
     def authenticate(self) -> bool:
         """Perform OAuth2 Device Code Flow authentication."""
-        # Try to load existing tokens
-        if self._load_tokens():
-            # Check if we have a valid access token or can refresh
-            if not self._is_token_expired("access_token"):
-                print("Using existing valid access token")
+        # Always refresh tokens on startup for fresh hour-long session
+        if (
+            self._load_tokens()
+            and "refresh_token" in self.tokens
+            and not self._is_token_expired("refresh_token")
+        ):
+            print("Refreshing tokens for fresh session...")
+            if self._refresh_tokens():
                 return True
-            elif "refresh_token" in self.tokens and not self._is_token_expired(
-                "refresh_token"
-            ):
-                print("Access token expired, attempting to refresh...")
-                if self._refresh_tokens():
-                    return True
-                print("Token refresh failed, proceeding with new authentication...")
+            print("Token refresh failed, proceeding with new authentication...")
 
         print("Starting OAuth2 Device Code Flow authentication...")
 
@@ -278,7 +289,7 @@ class BMWCarDataClient:
         """Store tokens with expiration timestamps."""
         now = datetime.now()
 
-        # Store access token
+        # Store access token (in memory only, not persisted)
         if "access_token" in tokens:
             expires_in = tokens.get("expires_in", 3600)
             self.tokens["access_token"] = {
@@ -287,14 +298,14 @@ class BMWCarDataClient:
                 "type": tokens.get("token_type", "Bearer"),
             }
 
-        # Store refresh token (valid for 2 weeks)
+        # Store refresh token (persisted for future use)
         if "refresh_token" in tokens:
             self.tokens["refresh_token"] = {
                 "token": tokens["refresh_token"],
                 "expires_at": (now + timedelta(seconds=1209600)).isoformat(),  # 2 weeks
             }
 
-        # Store ID token (for MQTT)
+        # Store ID token (in memory only, not persisted)
         if "id_token" in tokens:
             expires_in = tokens.get("expires_in", 3600)
             self.tokens["id_token"] = {
@@ -308,7 +319,7 @@ class BMWCarDataClient:
         if "scope" in tokens:
             self.tokens["scope"] = tokens["scope"]
 
-        self._save_tokens()
+        self._save_tokens_selective()
 
     def _refresh_tokens(self) -> bool:
         """Refresh access and ID tokens using refresh token."""
@@ -370,7 +381,7 @@ class BMWCarDataClient:
             if hasattr(flags, "session_present"):
                 print(f"Session present: {flags.session_present}")
         else:
-            print(f"Failed to connect to MQTT broker: {rc.name}")
+            print(f"Failed to connect to MQTT broker: {rc}")
 
     def _on_message(self, client, userdata, msg):
         """MQTT message callback."""
@@ -467,7 +478,7 @@ class BMWCarDataClient:
     def _on_disconnect(self, client, userdata, flags, rc, properties):
         """MQTT disconnect callback."""
         if rc.value != 0:
-            print(f"Unexpected disconnection from MQTT broker: {rc.name}")
+            print(f"Unexpected disconnection from MQTT broker: {rc}")
 
             if rc.value in (4, 5):
                 print("Possible token expiration - checking token validity...")
