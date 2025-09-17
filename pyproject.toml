@@ -1,0 +1,11 @@
+[project]
+name = "bmw-cardata-poc"
+version = "0.1.0"
+description = "Proof-of-concept BMW CarData MQTT client with OAuth2 Device Code Flow authentication for real-time vehicle data streaming"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "paho-mqtt>=2.1.0",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.5",
+]
