@@ -192,7 +192,7 @@ Optional:
 - `BMW_MQTT_HOST`: MQTT broker hostname (default: customer.streaming-cardata.bmwgroup.com)
 - `BMW_MQTT_PORT`: MQTT broker port (default: 9000)
 - `BMW_TOKEN_FILE`: Path to token storage file (default: bmw_tokens.json)
-- `MQTT_LOGGING`: Enable detailed MQTT logging (set to "true", "1", "yes", or "on")
+- `MQTT_DEBUG`: Enable detailed MQTT debug logging including keepalive messages (set to "true", "1", "yes", or "on")
 
 ## Token Management
 
@@ -203,6 +203,36 @@ Tokens are automatically saved to `bmw_tokens.json` and refreshed as needed:
 - ID tokens: Used as MQTT password, valid for ~1 hour
 
 The client automatically refreshes tokens before they expire.
+
+## Debugging
+
+### MQTT Debug Logging
+
+To troubleshoot MQTT connection issues, enable detailed debug logging:
+
+```bash
+export MQTT_DEBUG=true
+uv run main.py
+```
+
+This will show detailed MQTT protocol messages including:
+- Connection establishment and TLS handshake details
+- Keepalive/ping messages between client and broker
+- Subscription confirmations and QoS handling
+- Network socket activity and timeouts
+- Authentication and credential exchange
+- Disconnection reasons and error codes
+
+Debug messages are formatted with precise timestamps:
+```
+[13:18:22.145] MQTT(16): Sending CONNECT (b0, ...)
+[13:18:22.234] MQTT(16): Received CONNACK (20, 0)
+[13:18:22.235] MQTT(16): Sending SUBSCRIBE (82, ...)
+[13:18:37.145] MQTT(16): Sending PINGREQ
+[13:18:37.187] MQTT(16): Received PINGRESP
+```
+
+Note: Debug logging will temporarily set the logger to DEBUG level to ensure all MQTT messages are visible.
 
 ## Disclaimer
 

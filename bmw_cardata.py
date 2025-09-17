@@ -9,6 +9,7 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import secrets
 import time
 import webbrowser
@@ -18,7 +19,6 @@ from typing import Any, Callable, Dict, Optional
 
 import paho.mqtt.client as mqtt
 import requests
-
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class BMWCarDataClient:
         mqtt_host: str = "customer.streaming-cardata.bmwgroup.com",
         mqtt_port: int = 9000,
         token_file: str = "bmw_tokens.json",
+        subscribe_wildcard: bool = True,
     ):
         """
         Initialize BMW CarData client.
@@ -43,12 +44,14 @@ class BMWCarDataClient:
             mqtt_host: MQTT broker hostname
             mqtt_port: MQTT broker port
             token_file: Path to token storage file
+            subscribe_wildcard: Whether to subscribe to wildcard topic (GCID/+)
         """
         self.client_id = client_id
         self.vin = vin
         self.mqtt_host = mqtt_host
         self.mqtt_port = mqtt_port
         self.token_file = token_file
+        self.subscribe_wildcard = subscribe_wildcard
 
         # OAuth endpoints
         self.device_code_url = "https://customer.bmwgroup.com/gcdm/oauth/device/code"
@@ -371,9 +374,14 @@ class BMWCarDataClient:
             client.subscribe(topic, qos=1)
             logger.info(f"Subscribed to topic: {topic} with QoS 1")
 
-            wildcard_topic = f"{self.mqtt_username}/+"
-            client.subscribe(wildcard_topic, qos=1)
-            logger.info(f"Subscribed to wildcard topic: {wildcard_topic} with QoS 1")
+            if self.subscribe_wildcard:
+                wildcard_topic = f"{self.mqtt_username}/+"
+                client.subscribe(wildcard_topic, qos=1)
+                logger.info(
+                    f"Subscribed to wildcard topic: {wildcard_topic} with QoS 1"
+                )
+            else:
+                logger.info("Wildcard subscription disabled")
 
             expires_at = datetime.fromisoformat(self.tokens["id_token"]["expires_at"])
             time_until_expiry = expires_at - datetime.now()
@@ -425,6 +433,23 @@ class BMWCarDataClient:
             if self.disconnect_callback:
                 self.disconnect_callback(rc.value)
 
+    def _on_log(self, _client, _userdata, level, buf):
+        """MQTT logging callback for debug output."""
+        # Map MQTT log levels to Python logging levels
+        # PAHO MQTT uses integer constants: 16=DEBUG, 8=INFO, 4=NOTICE, 2=WARNING, 1=ERROR
+        level_map = {
+            16: logging.DEBUG,  # MQTT_LOG_DEBUG
+            8: logging.INFO,  # MQTT_LOG_INFO
+            4: logging.INFO,  # MQTT_LOG_NOTICE
+            2: logging.WARNING,  # MQTT_LOG_WARNING
+            1: logging.ERROR,  # MQTT_LOG_ERR
+        }
+        py_level = level_map.get(level, logging.INFO)
+
+        # Format with timestamp and level info for better debugging
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        logger.log(py_level, f"[{timestamp}] MQTT({level}): {buf}")
+
     def connect_mqtt(self) -> bool:
         """Connect to MQTT broker for streaming."""
         if not self._ensure_valid_tokens():
@@ -445,6 +470,15 @@ class BMWCarDataClient:
         self.mqtt_client.on_message = self._on_message
         self.mqtt_client.on_subscribe = self._on_subscribe
         self.mqtt_client.on_disconnect = self._on_disconnect
+
+        # Enable MQTT debug logging if requested
+        if os.getenv("MQTT_DEBUG", "").lower() in ("true", "1", "yes", "on"):
+            self.mqtt_client.on_log = self._on_log
+            self.mqtt_client.enable_logger()
+            # Temporarily set logger to DEBUG level for MQTT messages
+            mqtt_logger = logging.getLogger("bmw_cardata")
+            mqtt_logger.setLevel(logging.DEBUG)
+            logger.info("MQTT debug logging enabled")
 
         self.mqtt_client.tls_set()
 
@@ -491,4 +525,21 @@ class BMWCarDataClient:
                         self.mqtt_client.disconnect()
                         if not self.connect_mqtt():
                             logger.error("Failed to reconnect MQTT")
+                            break
+                else:
+                    # Token refresh succeeded, update MQTT credentials
+                    if self.mqtt_client and "id_token" in self.tokens:
+                        logger.info("Updating MQTT credentials with new tokens...")
+                        new_id_token = self.tokens["id_token"]["token"]
+                        self.mqtt_client.username_pw_set(
+                            self.mqtt_username, new_id_token
+                        )
+
+                        # Reconnect with updated credentials
+                        logger.info("Reconnecting MQTT with refreshed credentials...")
+                        self.mqtt_client.disconnect()
+                        if not self.connect_mqtt():
+                            logger.error(
+                                "Failed to reconnect MQTT with new credentials"
+                            )
                             break

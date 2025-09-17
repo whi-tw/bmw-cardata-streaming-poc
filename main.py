@@ -134,6 +134,7 @@ class BMWCarDataApp:
             mqtt_host=mqtt_host,
             mqtt_port=mqtt_port,
             token_file=token_file,
+            subscribe_wildcard=True,
         )
 
         # Set callbacks
@@ -192,6 +193,7 @@ class BMWCarDataApp:
             mqtt_host=mqtt_host,
             mqtt_port=mqtt_port,
             token_file=token_file,
+            subscribe_wildcard=True,
         )
 
         # Set token refresh callback

@@ -212,6 +212,7 @@ def start_bmw_client():
         mqtt_host=mqtt_host,
         mqtt_port=mqtt_port,
         token_file=token_file,
+        subscribe_wildcard=False,
     )
 
     # Set callbacks
