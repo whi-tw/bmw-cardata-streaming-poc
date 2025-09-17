@@ -58,16 +58,33 @@ The client can optionally use BMW's official data catalogue to display human-rea
 To get the latest BMW CarData catalogue with descriptions and units:
 
 ```bash
-uv run fetch_bmw_catalogue.py
+uv run bmw_catalogue.py --refresh
 ```
 
-This downloads and parses BMW's official telematic data catalogue into `bmw_data_catalogue.json`. The CLI application automatically uses this file if present to enhance message display.
+This fetches BMW's official telematic data catalogue from their API and caches it locally in `bmw_data_catalogue.json`. The applications automatically use this cached data to enhance message display with human-readable names and units.
+
+You can also explore the catalogue data:
+
+```bash
+# Show catalogue statistics
+uv run bmw_catalogue.py --stats
+
+# List all categories with descriptions
+uv run bmw_catalogue.py --list-categories
+
+# Search for specific data points
+uv run bmw_catalogue.py --search "door"
+
+# List items by category
+uv run bmw_catalogue.py --category "VEHICLE_STATUS"
+```
 
 ## Architecture
 
 The project consists of three main components:
 
 - **`bmw_cardata.py`** - Standalone library handling authentication and MQTT
+- **`bmw_catalogue.py`** - Catalogue library for fetching and caching BMW's official data catalogue
 - **`main.py`** - CLI application with display logic and message formatting
 - **`webui.py`** - Web dashboard with real-time visualization and WebSocket updates
 
@@ -129,26 +146,15 @@ To see raw MQTT messages with full JSON data and technical keys:
 uv run main.py --log-raw-messages
 ```
 
-### Web Dashboard
+### Web Dashboard (Example)
 
-Run the web dashboard for a visual real-time interface:
+For a visual example of using the MQTT data:
 
 ```bash
 uv run webui.py
-# or if not using uv:
-python webui.py
 ```
 
-This launches a web server at `http://localhost:5000` with:
-
-- **Real-time data visualization** with automatic updates via WebSockets
-- **Visual flash effects** when data values change
-- **Connection status monitoring** in the header
-- **Data statistics** showing point count, last update, and update rate
-- **Organized display** with data cards sorted alphabetically by technical ID
-- **BMW styling** with responsive grid layout
-
-The web UI integrates with BMW's data catalogue to show human-readable names and units for all telematic data points.
+This launches a simple web dashboard at `http://localhost:5000` that demonstrates real-time data visualization using the BMW CarData stream.
 
 ### Get MQTT Credentials Only
 

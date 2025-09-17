@@ -17,6 +17,7 @@ from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO, emit
 
 from bmw_cardata import BMWCarDataClient
+from bmw_catalogue import BMWCatalogueClient
 
 try:
     from dotenv import load_dotenv
@@ -36,20 +37,9 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Global state
 client = None
 current_data = {}
-data_catalogue = {}
+catalogue_client = None
 connection_status = "disconnected"
-
-
-def load_data_catalogue() -> dict:
-    """Load BMW data catalogue for message decoration."""
-    catalogue_file = Path("bmw_data_catalogue.json")
-    if catalogue_file.exists():
-        try:
-            with open(catalogue_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"Could not load data catalogue: {e}")
-    return {}
+CACHE_FILE = "bmw_webui_cache.json"
 
 
 def format_data_point(key: str, value: Any) -> dict:
@@ -58,17 +48,58 @@ def format_data_point(key: str, value: Any) -> dict:
         "key": key,
         "value": value,
         "display_name": key,
-        "unit": None
+        "unit": None,
+        "category": None,
+        "category_description": None,
+        "category_rank": None,
+        "datatype": None
     }
     
-    if data_catalogue and key in data_catalogue:
-        catalogue_info = data_catalogue[key]
-        result["display_name"] = catalogue_info.get('cardata_element', key)
-        unit = catalogue_info.get('unit', '')
-        if unit and unit != '-':
-            result["unit"] = unit
+    if catalogue_client:
+        result["display_name"] = catalogue_client.get_display_name(key)
+        result["unit"] = catalogue_client.get_unit(key)
+        result["category"] = catalogue_client.get_category(key)
+        result["datatype"] = catalogue_client.get_datatype(key)
+        if result["category"]:
+            result["category_description"] = catalogue_client.get_category_description(result["category"])
+            result["category_rank"] = catalogue_client.get_category_rank(result["category"])
     
     return result
+
+
+def load_cached_data():
+    """Load cached data from previous session."""
+    global current_data
+    try:
+        if Path(CACHE_FILE).exists():
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                cached_data = json.load(f)
+                
+                # Ensure all cached data has current category metadata
+                if catalogue_client:
+                    for key, data in cached_data.items():
+                        # Add or update category metadata
+                        data['category'] = catalogue_client.get_category(key)
+                        category = data.get('category')
+                        if category:
+                            data['category_description'] = catalogue_client.get_category_description(category)
+                            data['category_rank'] = catalogue_client.get_category_rank(category)
+                        data['datatype'] = catalogue_client.get_datatype(key)
+                
+                current_data = cached_data
+                logger.info(f"Loaded {len(current_data)} cached data points")
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning(f"Could not load cached data: {e}")
+
+
+def save_cached_data():
+    """Save current data to cache file."""
+    try:
+        with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(current_data, f, indent=2)
+        logger.debug(f"Saved {len(current_data)} data points to cache")
+    except IOError as e:
+        logger.warning(f"Could not save cached data: {e}")
 
 
 def on_message(topic: str, data: dict):
@@ -95,7 +126,11 @@ def on_message(topic: str, data: dict):
                     "value": value_data["value"],
                     "timestamp": value_data["timestamp"],
                     "display_name": formatted["display_name"],
-                    "unit": formatted["unit"]
+                    "unit": formatted["unit"],
+                    "category": formatted["category"],
+                    "category_description": formatted["category_description"],
+                    "category_rank": formatted["category_rank"],
+                    "datatype": formatted["datatype"]
                 }
                 
                 updates.append(formatted)
@@ -107,6 +142,9 @@ def on_message(topic: str, data: dict):
                 "timestamp": msg_timestamp,
                 "updates": updates
             })
+            
+            # Save cached data periodically (every update for now)
+            save_cached_data()
             
         logger.info(f"Processed {len(updates)} data points for VIN {vin}")
         
@@ -230,11 +268,15 @@ def handle_disconnect():
 
 def main():
     """Main entry point."""
-    global data_catalogue
+    global catalogue_client
     
-    # Load data catalogue
-    data_catalogue = load_data_catalogue()
-    logger.info(f"Loaded {len(data_catalogue)} data catalogue entries")
+    # Initialize catalogue client
+    catalogue_client = BMWCatalogueClient()
+    stats = catalogue_client.get_stats()
+    logger.info(f"Loaded {stats['total_items']} catalogue entries from cache")
+    
+    # Load cached data from previous session
+    load_cached_data()
     
     
     # Start BMW client in background thread
@@ -243,7 +285,7 @@ def main():
     
     # Start web server
     logger.info("Starting BMW CarData Web UI on http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
 
 
 if __name__ == "__main__":

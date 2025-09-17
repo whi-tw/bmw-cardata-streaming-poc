@@ -11,3 +11,4 @@ wheels/
 
 .env
 bmw_tokens.json
+bmw_webui_cache.json
