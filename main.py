@@ -24,6 +24,7 @@ import secrets
 import time
 import webbrowser
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict
 
 import paho.mqtt.client as mqtt
@@ -70,12 +71,26 @@ class BMWCarDataClient:
         self.tokens = {}
         self.mqtt_client = None
 
+        # Load BMW data catalogue for message decoration
+        self.data_catalogue = self._load_data_catalogue()
+
     @property
     def mqtt_username(self) -> str:
         """Get MQTT username (GCID) from stored tokens."""
         if "gcid" in self.tokens:
             return self.tokens["gcid"]
         raise ValueError("GCID not available - authentication required")
+
+    def _load_data_catalogue(self) -> dict:
+        """Load BMW data catalogue for message decoration."""
+        catalogue_file = Path("bmw_data_catalogue.json")
+        if catalogue_file.exists():
+            try:
+                with open(catalogue_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not load data catalogue: {e}")
+        return {}
 
     def _generate_pkce_pair(self) -> tuple[str, str]:
         """Generate PKCE code verifier and code challenge."""
@@ -402,7 +417,10 @@ class BMWCarDataClient:
                     and "value" in value
                     and "timestamp" in value
                 ):
-                    print(f"  {key}: {value['value']} (at {value['timestamp']})")
+                    formatted_line = self._format_data_point(
+                        key, value["value"], value["timestamp"]
+                    )
+                    print(f"  {formatted_line}")
                 else:
                     print(f"  {key}: {value}")
 
@@ -410,6 +428,22 @@ class BMWCarDataClient:
 
         except Exception:
             return False
+
+    def _format_data_point(self, key: str, value: Any, timestamp: str) -> str:
+        """Format a data point with catalogue information."""
+        if not self.data_catalogue or key not in self.data_catalogue:
+            return f"{key}: {value} (at {timestamp})"
+
+        catalogue_info = self.data_catalogue[key]
+        name = catalogue_info.get("cardata_element", key)
+        unit = catalogue_info.get("unit", "")
+
+        # Format the value with unit if available
+        value_str = str(value)
+        if unit and unit != "-":
+            value_str = f"{value} {unit}"
+
+        return f"{name}: {value_str} (at {timestamp})"
 
     def _on_log(self, client, userdata, level, buf):
         """MQTT logging callback for debugging."""

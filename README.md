@@ -7,6 +7,7 @@ A proof-of-concept Python client for BMW CarData that authenticates using OAuth2
 - OAuth2 Device Code Flow authentication with PKCE
 - Automatic token refresh and persistence
 - Real-time MQTT streaming of vehicle data with QoS 1
+- Human-readable message display using BMW's official data catalogue
 - Credentials-only mode for external MQTT clients
 - MQTT v5.0 with clean session handling
 
@@ -46,6 +47,20 @@ Before you can use this client, you need:
 
 For a complete technical guide to BMW's OAuth2 Device Code Flow authentication process, including step-by-step implementation details for other programming languages, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
+## Data Catalogue
+
+The client can optionally use BMW's official data catalogue to display human-readable names and units for telematic data points.
+
+### Download Data Catalogue
+
+To get the latest BMW CarData catalogue with descriptions and units:
+
+```bash
+uv run fetch_bmw_catalogue.py
+```
+
+This downloads and parses BMW's official telematic data catalogue into `bmw_data_catalogue.json`. The client automatically uses this file if present to enhance message display.
+
 ## Usage
 
 ### Stream Vehicle Data
@@ -68,15 +83,15 @@ On first run, you'll be prompted to authenticate via your browser. The client wi
 
 #### Message Logging Options
 
-By default, messages are parsed into a readable format:
+By default, messages are parsed into a readable format with human-readable names:
 
 ```
 [2025-09-17 13:18:22] Vehicle Event - WBAJE5C55KG123456
 Event time: 2025-09-17T12:18:21.396Z
-  vehicle.cabin.door.row2.driver.isOpen: false (at 2025-09-17T12:18:19Z)
+  Status of rear left door: false (at 2025-09-17T12:18:19Z)
 ```
 
-To see raw MQTT messages with full JSON data:
+To see raw MQTT messages with full JSON data and technical keys:
 
 ```bash
 uv run main.py --log-raw-messages
