@@ -1,15 +1,17 @@
-# BMW CarData MQTT Client (POC)
+# BMW CarData MQTT Client
 
-A proof-of-concept Python client for BMW CarData that authenticates using OAuth2 Device Code Flow and streams real-time vehicle data via MQTT.
+A Python client for BMW CarData that authenticates using OAuth2 Device Code Flow and streams real-time vehicle data via MQTT.
 
 ## Features
 
-- OAuth2 Device Code Flow authentication with PKCE
-- Automatic token refresh and persistence
-- Real-time MQTT streaming of vehicle data with QoS 1
-- Human-readable message display using BMW's official data catalogue
-- Credentials-only mode for external MQTT clients
-- MQTT v5.0 with clean session handling
+- **Standalone library** (`bmw_cardata.py`) for easy integration
+- **OAuth2 Device Code Flow** authentication with PKCE
+- **Automatic token refresh** and persistence
+- **Real-time MQTT streaming** of vehicle data with QoS 1
+- **Human-readable message display** using BMW's official data catalogue
+- **Credentials-only mode** for external MQTT clients
+- **MQTT v5.0** with clean session handling
+- **Callback-based architecture** for flexible integration
 
 ## Setup
 
@@ -59,7 +61,37 @@ To get the latest BMW CarData catalogue with descriptions and units:
 uv run fetch_bmw_catalogue.py
 ```
 
-This downloads and parses BMW's official telematic data catalogue into `bmw_data_catalogue.json`. The client automatically uses this file if present to enhance message display.
+This downloads and parses BMW's official telematic data catalogue into `bmw_data_catalogue.json`. The CLI application automatically uses this file if present to enhance message display.
+
+## Architecture
+
+The project consists of three main components:
+
+- **`bmw_cardata.py`** - Standalone library handling authentication and MQTT
+- **`main.py`** - CLI application with display logic and message formatting
+- **`webui.py`** - Web dashboard with real-time visualization and WebSocket updates
+
+### Library Usage
+
+You can use the library directly in your own projects:
+
+```python
+from bmw_cardata import BMWCarDataClient
+
+# Create client
+client = BMWCarDataClient(
+    client_id="your-client-id",
+    vin="your-vin",
+)
+
+# Set up callbacks
+client.set_message_callback(lambda topic, data: print(f"Got data: {data}"))
+client.set_connect_callback(lambda: print("Connected!"))
+
+# Authenticate and connect
+if client.authenticate():
+    client.connect_mqtt()
+```
 
 ## Usage
 
@@ -96,6 +128,27 @@ To see raw MQTT messages with full JSON data and technical keys:
 ```bash
 uv run main.py --log-raw-messages
 ```
+
+### Web Dashboard
+
+Run the web dashboard for a visual real-time interface:
+
+```bash
+uv run webui.py
+# or if not using uv:
+python webui.py
+```
+
+This launches a web server at `http://localhost:5000` with:
+
+- **Real-time data visualization** with automatic updates via WebSockets
+- **Visual flash effects** when data values change
+- **Connection status monitoring** in the header
+- **Data statistics** showing point count, last update, and update rate
+- **Organized display** with data cards sorted alphabetically by technical ID
+- **BMW styling** with responsive grid layout
+
+The web UI integrates with BMW's data catalogue to show human-readable names and units for all telematic data points.
 
 ### Get MQTT Credentials Only
 

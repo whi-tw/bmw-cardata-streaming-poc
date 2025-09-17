@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "beautifulsoup4>=4.13.5",
+    "flask>=3.1.2",
+    "flask-socketio>=5.5.1",
     "paho-mqtt>=2.1.0",
     "python-dotenv>=1.1.1",
     "requests>=2.32.5",
