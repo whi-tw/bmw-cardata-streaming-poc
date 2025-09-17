@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from bmw_cardata import BMWCarDataClient
+from bmw_catalogue import BMWCatalogueClient
 
 try:
     from dotenv import load_dotenv
@@ -28,36 +29,21 @@ class BMWCarDataApp:
 
     def __init__(self, log_raw_messages: bool = False):
         self.log_raw_messages = log_raw_messages
-        self.data_catalogue = self._load_data_catalogue()
+        self.catalogue_client = BMWCatalogueClient()
         self.client = None
         self.running = False
 
-    def _load_data_catalogue(self) -> dict:
-        """Load BMW data catalogue for message decoration."""
-        catalogue_file = Path("bmw_data_catalogue.json")
-        if catalogue_file.exists():
-            try:
-                with open(catalogue_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"Warning: Could not load data catalogue: {e}")
-        return {}
-
     def _format_data_point(self, key: str, value: Any, timestamp: str) -> str:
         """Format a data point with catalogue information."""
-        if not self.data_catalogue or key not in self.data_catalogue:
-            return f"{key}: {value} (at {timestamp})"
-        
-        catalogue_info = self.data_catalogue[key]
-        name = catalogue_info.get('cardata_element', key)
-        unit = catalogue_info.get('unit', '')
+        display_name = self.catalogue_client.get_display_name(key)
+        unit = self.catalogue_client.get_unit(key)
         
         # Format the value with unit if available
         value_str = str(value)
-        if unit and unit != '-':
+        if unit:
             value_str = f"{value} {unit}"
         
-        return f"{name}: {value_str} (at {timestamp})"
+        return f"{display_name}: {value_str} (at {timestamp})"
 
     def _parse_bmw_message(self, data: dict, timestamp: str) -> bool:
         """Parse BMW CarData message into readable format."""
