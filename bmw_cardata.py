@@ -36,7 +36,7 @@ class BMWCarDataClient:
     ):
         """
         Initialize BMW CarData client.
-        
+
         Args:
             client_id: BMW CarData client ID
             vin: Vehicle VIN
@@ -57,7 +57,7 @@ class BMWCarDataClient:
         # State
         self.tokens = {}
         self.mqtt_client = None
-        
+
         # Callbacks
         self.message_callback: Optional[Callable] = None
         self.connect_callback: Optional[Callable] = None
@@ -154,7 +154,9 @@ class BMWCarDataClient:
             logger.info("Refreshing tokens for fresh session...")
             if self._refresh_tokens():
                 return True
-            logger.warning("Token refresh failed, proceeding with new authentication...")
+            logger.warning(
+                "Token refresh failed, proceeding with new authentication..."
+            )
 
         logger.info("Starting OAuth2 Device Code Flow authentication...")
 
@@ -354,7 +356,9 @@ class BMWCarDataClient:
                 logger.info("ID token expired, refreshing...")
                 return self._refresh_tokens()
             else:
-                logger.error("ID token expired and cannot refresh, need new authentication")
+                logger.error(
+                    "ID token expired and cannot refresh, need new authentication"
+                )
                 return self.authenticate()
         return True
 
@@ -387,12 +391,12 @@ class BMWCarDataClient:
         """MQTT message callback."""
         try:
             data = json.loads(msg.payload.decode())
-            
+
             if self.message_callback:
                 self.message_callback(msg.topic, data)
             else:
                 logger.info(f"Received message on {msg.topic}: {data}")
-                
+
         except json.JSONDecodeError:
             logger.warning(f"Received non-JSON message: {msg.payload.decode()}")
         except Exception as e:
@@ -468,7 +472,7 @@ class BMWCarDataClient:
     def run_token_monitor(self, stop_callback: Optional[Callable[[], bool]] = None):
         """
         Monitor and refresh tokens as needed.
-        
+
         Args:
             stop_callback: Optional callback that returns True to stop monitoring
         """
