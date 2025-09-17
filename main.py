@@ -356,7 +356,7 @@ class BMWCarDataClient:
         else:
             print(f"Failed to connect to MQTT broker: {rc.name}")
 
-    def _on_message(self, client, userdata, msg, properties):
+    def _on_message(self, client, userdata, msg):
         """MQTT message callback."""
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
