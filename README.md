@@ -15,7 +15,14 @@ A Python client for BMW CarData that authenticates using OAuth2 Device Code Flow
 
 ## Setup
 
-1. Install dependencies:
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/whi-tw/bmw-cardata-streaming-poc.git
+   cd bmw-cardata-streaming-poc
+   ```
+
+2. Install dependencies:
 
    ```bash
    uv install
@@ -27,13 +34,13 @@ A Python client for BMW CarData that authenticates using OAuth2 Device Code Flow
    pip install -r requirements.txt
    ```
 
-2. Copy the example environment file:
+3. Copy the example environment file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Edit `.env` with your BMW CarData credentials:
+4. Edit `.env` with your BMW CarData credentials:
    ```bash
    export BMW_CLIENT_ID="your-client-id"
    export BMW_VIN="your-vehicle-vin"
