@@ -1,0 +1,24 @@
+name: Close Pull Request
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # && github.event.pull_request.author_association == 'NONE'
+    if: github.event.pull_request.user.login != 'github-actions[bot]'
+    steps:
+      - name: Update and Close PR
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr edit "${PR_NUMBER}" --add-label "NO_PRS"
+          gh pr close "${PR_NUMBER}" -c "> [!IMPORTANT]\n> PRs are not accepted. Sorry."
+          gh pr lock "${PR_NUMBER}"
